@@ -295,3 +295,221 @@ buildTable(budgetData);
 * Drill-down per lab
 
 Just say **next step** 👍
+
+
+
+
+Great question 👍
+This is **exactly the right time** to think about DB + backend.
+
+I’ll explain this **step-by-step**, very clearly, **WebForms (.NET 4.5) friendly**, with **jQuery AJAX**.
+
+---
+
+## 1️⃣ First understand WHAT you are saving
+
+You already have **DB columns**:
+
+```
+sanction
+exp
+inpipe
+commit
+bal
+```
+
+👉 These are **OVERALL values**, not lab-wise.
+
+So you will save **ONE ROW** (or one record per period / year / project).
+
+---
+
+## 2️⃣ Where are OVERALL values in UI?
+
+In your table, **each row has an Overall column**:
+
+```
+<tr data-field="sanction">   → overall textbox
+<tr data-field="expenditure">
+<tr data-field="inpipe">
+<tr data-field="commitment">
+<tr data-field="balance">
+```
+
+We will **read those overall textboxes** using jQuery.
+
+---
+
+## 3️⃣ Collect OVERALL values from UI (Frontend JS)
+
+### ✅ Function to read overall values
+
+```html
+<script>
+function getOverallData() {
+    return {
+        sanction: parseFloat($("tr[data-field='sanction'] .overall input").val()) || 0,
+        exp:       parseFloat($("tr[data-field='expenditure'] .overall input").val()) || 0,
+        inpipe:    parseFloat($("tr[data-field='inpipe'] .overall input").val()) || 0,
+        commit:    parseFloat($("tr[data-field='commitment'] .overall input").val()) || 0,
+        bal:       parseFloat($("tr[data-field='balance'] .overall input").val()) || 0
+    };
+}
+</script>
+```
+
+📌 This directly matches your DB columns.
+
+---
+
+## 4️⃣ Send data to backend using jQuery AJAX (WebForms)
+
+### ✅ AJAX call
+
+```html
+<button id="btnSave">Save Overall</button>
+
+<script>
+$("#btnSave").click(function () {
+
+    var overallData = getOverallData();
+
+    $.ajax({
+        type: "POST",
+        url: "Budget.aspx/SaveOverall",
+        data: JSON.stringify({ model: overallData }),
+        contentType: "application/json; charset=utf-8",
+        dataType: "json",
+        success: function (res) {
+            alert("Overall data saved successfully");
+        },
+        error: function (err) {
+            alert("Error while saving");
+            console.log(err);
+        }
+    });
+});
+</script>
+```
+
+✔ Works in **ASP.NET WebForms (.NET 4.5)**
+✔ Uses **PageMethods-style WebMethod**
+
+---
+
+## 5️⃣ Backend: WebForms code-behind (C#)
+
+### ✅ Create a POCO model
+
+```csharp
+public class OverallBudgetModel
+{
+    public decimal sanction { get; set; }
+    public decimal exp { get; set; }
+    public decimal inpipe { get; set; }
+    public decimal commit { get; set; }
+    public decimal bal { get; set; }
+}
+```
+
+---
+
+### ✅ WebMethod in `Budget.aspx.cs`
+
+```csharp
+using System.Web.Services;
+using System.Data.SqlClient;
+using System.Configuration;
+
+public partial class Budget : System.Web.UI.Page
+{
+    [WebMethod]
+    public static string SaveOverall(OverallBudgetModel model)
+    {
+        string cs = ConfigurationManager.ConnectionStrings["DBCS"].ConnectionString;
+
+        using (SqlConnection con = new SqlConnection(cs))
+        {
+            string query = @"
+                INSERT INTO LabBudgetOverall
+                (sanction, exp, inpipe, commit, bal)
+                VALUES
+                (@sanction, @exp, @inpipe, @commit, @bal)";
+
+            using (SqlCommand cmd = new SqlCommand(query, con))
+            {
+                cmd.Parameters.AddWithValue("@sanction", model.sanction);
+                cmd.Parameters.AddWithValue("@exp", model.exp);
+                cmd.Parameters.AddWithValue("@inpipe", model.inpipe);
+                cmd.Parameters.AddWithValue("@commit", model.commit);
+                cmd.Parameters.AddWithValue("@bal", model.bal);
+
+                con.Open();
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        return "success";
+    }
+}
+```
+
+---
+
+## 6️⃣ DB Table Example
+
+```sql
+CREATE TABLE LabBudgetOverall (
+    Id INT IDENTITY PRIMARY KEY,
+    sanction DECIMAL(18,2),
+    exp DECIMAL(18,2),
+    inpipe DECIMAL(18,2),
+    commit DECIMAL(18,2),
+    bal DECIMAL(18,2),
+    CreatedOn DATETIME DEFAULT GETDATE()
+);
+```
+
+---
+
+## 7️⃣ Flow summary (VERY IMPORTANT)
+
+```
+User edits labs → 
+Overall auto-calculated →
+getOverallData() →
+AJAX →
+WebMethod →
+DB
+```
+
+✔ No recomputation in backend
+✔ Backend trusts frontend calculation
+✔ Clean separation
+
+---
+
+## 8️⃣ (Optional but recommended)
+
+### Save both:
+
+* **Lab-wise data** → one table
+* **Overall summary** → another table
+
+This gives you:
+
+* Reporting speed
+* Audit
+* Historical tracking
+
+---
+
+## 🔜 Next things I can help you with
+
+1️⃣ Save **lab-wise values** also
+2️⃣ Update instead of insert
+3️⃣ Validation (negative balance check)
+4️⃣ Year / project-wise saving
+5️⃣ Stored procedure version
+
+Just tell me 👍
